@@ -30,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
 
-        // Handle External Links (WhatsApp, UPI, Phone)
+        // Handle External Links (WhatsApp, UPI, Phone calls)
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
@@ -47,7 +47,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Handle Pop-ups, Alerts, and File Upload Choosers
+        // Handle File Upload Chooser and JS Alert Dialogs
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
@@ -61,7 +61,7 @@ public class MainActivity extends AppCompatActivity {
                     startActivityForResult(intent, FILE_CHOOSER_RESULT_CODE);
                 } catch (Exception e) {
                     MainActivity.this.filePathCallback = null;
-                    Toast.makeText(MainActivity.getIntentContext(), "Cannot open file chooser", Toast.LENGTH_LONG).show();
+                    Toast.makeText(MainActivity.this, "Cannot open file chooser", Toast.LENGTH_LONG).show();
                     return false;
                 }
                 return true;
