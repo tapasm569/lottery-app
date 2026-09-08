@@ -9,9 +9,13 @@ jobs:
       with: 
         distribution: 'temurin'
         java-version: '17'
+    - uses: gradle/actions/setup-gradle@v3
     - run: |
-        gradle wrapper && chmod +x gradlew && ./gradlew assembleDebug
+        gradle wrapper --gradle-version 8.2
+        chmod +x gradlew
+        ./gradlew assembleDebug --stacktrace
     - uses: actions/upload-artifact@v4
       with:
         name: app-debug
         path: app/build/outputs/apk/debug/app-debug.apk
+        
