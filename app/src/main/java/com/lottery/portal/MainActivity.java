@@ -54,6 +54,22 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        webView.loadUrl("https://ticketsnowonline.kesug.com");
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (webView.canGoBack()) {
+            webView.goBack();
+        } else {
+            super.onBackPressed();
+        }
+    }
+}
+                return false;
+            }
+        });
+
         // Loads your live website domain directly
         webView.loadUrl("https://ticketsnowonline.kesug.com");
     }
