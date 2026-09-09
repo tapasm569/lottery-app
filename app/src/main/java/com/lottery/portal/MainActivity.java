@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.View;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -27,6 +28,10 @@ public class MainActivity extends AppCompatActivity {
 
         swipeRefreshLayout = new SwipeRefreshLayout(this);
         webView = new WebView(this);
+        
+        // Prevent GPU compositing dropouts with modal dialogs
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+
         swipeRefreshLayout.addView(webView);
         setContentView(swipeRefreshLayout);
 
@@ -36,12 +41,12 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setDatabaseEnabled(true);
-
-        // Turn OFF multiple windows to eliminate the blank/blurred overlay screen
+        
+        // Disable multiple windows to avoid creating blank/frozen overlay layers
         webSettings.setSupportMultipleWindows(false);
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
 
-        // Pull to refresh
+        // Allow pull-refresh ONLY when at the top of the scroll container
         swipeRefreshLayout.setOnRefreshListener(() -> webView.reload());
         swipeRefreshLayout.getViewTreeObserver().addOnScrollChangedListener(() -> {
             swipeRefreshLayout.setEnabled(webView.getScrollY() == 0);
@@ -61,18 +66,18 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return processUrl(request.getUrl().toString());
+                return handleExternalProtocols(request.getUrl().toString());
             }
 
             @SuppressWarnings("deprecation")
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return processUrl(url);
+                return handleExternalProtocols(url);
             }
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
-            // Excel & File Picker
+            // Excel and file upload selector
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
                 if (MainActivity.this.filePathCallback != null) {
@@ -103,13 +108,13 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl("https://ticketsnowonline.kesug.com");
     }
 
-    private boolean processUrl(String url) {
+    private boolean handleExternalProtocols(String url) {
         if (url == null) return false;
 
-        // Detect WhatsApp, UPI, Phone, and external actions
-        if (url.startsWith("https://wa.me/") || 
+        // Route WhatsApp, UPI payment apps, and phone calls outside WebView
+        if (url.startsWith("whatsapp://") || 
+            url.startsWith("https://wa.me/") || 
             url.startsWith("https://api.whatsapp.com/") || 
-            url.startsWith("whatsapp://") || 
             url.startsWith("upi://") || 
             url.startsWith("tel:") || 
             url.startsWith("mailto:")) {
@@ -117,14 +122,12 @@ public class MainActivity extends AppCompatActivity {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-                return true; // Stops WebView from staying on an empty/blurred tab
+                return true;
             } catch (Exception e) {
-                Toast.makeText(this, "No app available to open this link", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Application not installed to perform this action", Toast.LENGTH_SHORT).show();
                 return true;
             }
         }
-
-        // Keep internal website pages navigating inside the app
         return false;
     }
 
