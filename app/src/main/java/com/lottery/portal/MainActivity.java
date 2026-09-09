@@ -4,8 +4,10 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Message;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -34,20 +36,19 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setDomStorageEnabled(true);
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
+        webSettings.setDatabaseEnabled(true);
+        
+        // Critical for window.open() support (e.g., WhatsApp button triggers)
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+        webSettings.setSupportMultipleWindows(true);
 
-        // Pull down to reload
+        // Pull down to reload (only allowed when scrolled to the very top)
         swipeRefreshLayout.setOnRefreshListener(() -> webView.reload());
-
-        // Ensure SwipeRefreshLayout only activates at the top of the page
         swipeRefreshLayout.getViewTreeObserver().addOnScrollChangedListener(() -> {
-            if (webView.getScrollY() == 0) {
-                swipeRefreshLayout.setEnabled(true);
-            } else {
-                swipeRefreshLayout.setEnabled(false);
-            }
+            swipeRefreshLayout.setEnabled(webView.getScrollY() == 0);
         });
 
-        // WebViewClient for navigation and external protocols
+        // WebViewClient to handle standard and external URLs
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
@@ -61,22 +62,43 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return handleExternalLink(request.getUrl().toString());
+            }
+
+            @SuppressWarnings("deprecation")
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                if (url.startsWith("upi://") || url.startsWith("tel:") || url.startsWith("https://wa.me/")) {
-                    try {
-                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                        startActivity(intent);
-                        return true;
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-                return false;
+                return handleExternalLink(url);
             }
         });
 
-        // WebChromeClient for Excel file picking and alerts
+        // WebChromeClient to handle window.open(), file choosers, and alerts
         webView.setWebChromeClient(new WebChromeClient() {
+            // Handle window.open() calls (opens WhatsApp or external links in device apps)
+            @Override
+            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
+                WebView tempWebView = new WebView(MainActivity.this);
+                tempWebView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest req) {
+                        return handleExternalLink(req.getUrl().toString());
+                    }
+
+                    @SuppressWarnings("deprecation")
+                    @Override
+                    public boolean shouldOverrideUrlLoading(WebView v, String url) {
+                        return handleExternalLink(url);
+                    }
+                });
+
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(tempWebView);
+                resultMsg.sendToTarget();
+                return true;
+            }
+
+            // Excel / Image File Picker
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
                 if (MainActivity.this.filePathCallback != null) {
@@ -95,6 +117,7 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
 
+            // JavaScript alert dialog support
             @Override
             public boolean onJsAlert(WebView view, String url, String message, android.webkit.JsResult result) {
                 Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
@@ -104,6 +127,27 @@ public class MainActivity extends AppCompatActivity {
         });
 
         webView.loadUrl("https://ticketsnowonline.kesug.com");
+    }
+
+    // Helper method to intercept WhatsApp, UPI, phone calls, and open native apps
+    private boolean handleExternalLink(String url) {
+        if (url.startsWith("https://wa.me/") || 
+            url.startsWith("https://api.whatsapp.com/") || 
+            url.startsWith("whatsapp://") || 
+            url.startsWith("upi://") || 
+            url.startsWith("tel:") || 
+            url.startsWith("mailto:")) {
+            try {
+                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                startActivity(intent);
+                return true;
+            } catch (Exception e) {
+                Toast.makeText(this, "Application not installed to complete action", Toast.LENGTH_SHORT).show();
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
@@ -138,4 +182,4 @@ public class MainActivity extends AppCompatActivity {
             super.onBackPressed();
         }
     }
-                                       }
+}
