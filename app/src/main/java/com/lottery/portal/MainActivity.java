@@ -27,16 +27,13 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Initialize Swipe to Refresh and WebView
         swipeRefreshLayout = new SwipeRefreshLayout(this);
         webView = new WebView(this);
         
-        // Use hardware acceleration for smoother rendering
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         swipeRefreshLayout.addView(webView);
         setContentView(swipeRefreshLayout);
 
-        // Configure WebSettings for full modern web support
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
@@ -47,15 +44,12 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
         webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        // Enable Cookies (Important for Supabase Auth and Session handling)
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
-        // Handle Pull-to-Refresh
         swipeRefreshLayout.setOnRefreshListener(() -> webView.reload());
         
-        // Prevent SwipeRefreshLayout from hijacking normal scroll gestures
         swipeRefreshLayout.getViewTreeObserver().addOnScrollChangedListener(() -> {
             if (webView.getScrollY() == 0) {
                 swipeRefreshLayout.setEnabled(true);
@@ -68,7 +62,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
-                swipeRefreshLayout.setRefreshing(false); // Stop loading animation
+                swipeRefreshLayout.setRefreshing(false);
                 CookieManager.getInstance().flush();
             }
 
@@ -84,11 +78,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Setup WebChromeClient to handle File Picker & JS Alerts
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-                // If there's an existing callback, cancel it
                 if (MainActivity.this.filePathCallback != null) {
                     MainActivity.this.filePathCallback.onReceiveValue(null);
                 }
@@ -113,11 +105,9 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Load your live website URL
         webView.loadUrl("https://ticketsnowonline.kesug.com");
     }
 
-    // Handles native intents like WhatsApp deep links and UPI payment requests
     private boolean handleProtocols(String url) {
         if (url == null) return false;
         if (url.startsWith("whatsapp://") || url.startsWith("https://wa.me/") || url.startsWith("upi://") || url.startsWith("tel:")) {
@@ -128,13 +118,12 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             } catch (Exception e) {
                 Toast.makeText(this, "App not installed to handle this action", Toast.LENGTH_SHORT).show();
-                return true; // Still return true so WebView doesn't try to load the failed intent as a webpage
+                return true;
             }
         }
-        return false; // Let WebView load standard HTTP/HTTPS links
+        return false;
     }
 
-    // Captures the file selected by the user and passes it back to the HTML JavaScript
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         if (requestCode == FILE_CHOOSER_RESULT_CODE) {
@@ -142,7 +131,6 @@ public class MainActivity extends AppCompatActivity {
             
             Uri[] results = null;
             
-            // Check if the user successfully picked a file
             if (resultCode == RESULT_OK && data != null) {
                 String dataString = data.getDataString();
                 if (dataString != null) {
@@ -156,11 +144,9 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
             
-            // Send results (or null if canceled) back to the WebView
             filePathCallback.onReceiveValue(results);
             filePathCallback = null;
             
-            // CRITICAL FIX: Force WebView to redraw to clear any lingering dark background dim
             if (webView != null) {
                 webView.invalidate();
                 webView.requestLayout();
@@ -170,8 +156,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Handle physical back button presses cleanly inside the WebView history
-    @@Override
+    @Override
     public void onBackPressed() {
         if (webView.canGoBack()) {
             webView.goBack();
