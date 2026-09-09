@@ -1,6 +1,7 @@
 package com.lottery.portal;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.ValueCallback;
@@ -11,18 +12,23 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 public class MainActivity extends AppCompatActivity {
     private WebView webView;
+    private SwipeRefreshLayout swipeRefreshLayout;
     private ValueCallback<Uri[]> filePathCallback;
     private final static int FILE_CHOOSER_RESULT_CODE = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        
+
+        // Setup SwipeRefreshLayout container
+        swipeRefreshLayout = new SwipeRefreshLayout(this);
         webView = new WebView(this);
-        setContentView(webView);
+        swipeRefreshLayout.addView(webView);
+        setContentView(swipeRefreshLayout);
 
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
@@ -30,8 +36,22 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
 
-        // Handle External Links (WhatsApp, UPI, Phone calls)
+        // Pull down to reload
+        swipeRefreshLayout.setOnRefreshListener(() -> webView.reload());
+
+        // Stop the refresh spinner once the webpage completes loading
         webView.setWebViewClient(new WebViewClient() {
+            @Override
+            public void onPageStarted(WebView view, String url, Bitmap favicon) {
+                super.onPageStarted(view, url, favicon);
+            }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                swipeRefreshLayout.setRefreshing(false);
+            }
+
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
                 if (url.startsWith("upi://") || url.startsWith("tel:") || url.startsWith("https://wa.me/")) {
@@ -47,7 +67,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Handle File Upload Chooser and JS Alert Dialogs
+        // File upload chooser & JS Alerts
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
@@ -110,4 +130,5 @@ public class MainActivity extends AppCompatActivity {
             super.onBackPressed();
         }
     }
-}
+            }
+                            
