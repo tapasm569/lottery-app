@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
+import android.webkit.CookieManager;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -28,8 +29,8 @@ public class MainActivity extends AppCompatActivity {
 
         swipeRefreshLayout = new SwipeRefreshLayout(this);
         webView = new WebView(this);
-        
-        // Prevent GPU compositing dropouts with modal dialogs
+
+        // Hardware layer acceleration ensures modals & overlays render without dropping layers
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
 
         swipeRefreshLayout.addView(webView);
@@ -37,16 +38,23 @@ public class MainActivity extends AppCompatActivity {
 
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);
+
+        // Permanent session storage (DOM + Database)
         webSettings.setDomStorageEnabled(true);
+        webSettings.setDatabaseEnabled(true);
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
-        webSettings.setDatabaseEnabled(true);
-        
-        // Disable multiple windows to avoid creating blank/frozen overlay layers
+
+        // Retain cookies permanently across app restarts
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+        cookieManager.setAcceptThirdPartyCookies(webView, true);
+
+        // Prevent blank/blurred popup screens caused by secondary window creation
         webSettings.setSupportMultipleWindows(false);
         webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
 
-        // Allow pull-refresh ONLY when at the top of the scroll container
+        // Pull down to refresh (activated strictly at scroll top)
         swipeRefreshLayout.setOnRefreshListener(() -> webView.reload());
         swipeRefreshLayout.getViewTreeObserver().addOnScrollChangedListener(() -> {
             swipeRefreshLayout.setEnabled(webView.getScrollY() == 0);
@@ -62,22 +70,24 @@ public class MainActivity extends AppCompatActivity {
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
                 swipeRefreshLayout.setRefreshing(false);
+                // Flush cookies to persistent disk storage
+                CookieManager.getInstance().flush();
             }
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return handleExternalProtocols(request.getUrl().toString());
+                return handleProtocols(request.getUrl().toString());
             }
 
             @SuppressWarnings("deprecation")
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return handleExternalProtocols(url);
+                return handleProtocols(url);
             }
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
-            // Excel and file upload selector
+            // Excel import file chooser
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
                 if (MainActivity.this.filePathCallback != null) {
@@ -96,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
 
-            // JavaScript alert pop-ups
+            // JavaScript alert handling
             @Override
             public boolean onJsAlert(WebView view, String url, String message, android.webkit.JsResult result) {
                 Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
@@ -108,10 +118,10 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl("https://ticketsnowonline.kesug.com");
     }
 
-    private boolean handleExternalProtocols(String url) {
+    private boolean handleProtocols(String url) {
         if (url == null) return false;
 
-        // Route WhatsApp, UPI payment apps, and phone calls outside WebView
+        // Launch native apps for WhatsApp, UPI, and calls
         if (url.startsWith("whatsapp://") || 
             url.startsWith("https://wa.me/") || 
             url.startsWith("https://api.whatsapp.com/") || 
@@ -124,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(intent);
                 return true;
             } catch (Exception e) {
-                Toast.makeText(this, "Application not installed to perform this action", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Required application is not installed on this device", Toast.LENGTH_SHORT).show();
                 return true;
             }
         }
@@ -163,4 +173,4 @@ public class MainActivity extends AppCompatActivity {
             super.onBackPressed();
         }
     }
-}
+        }
