@@ -24,7 +24,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Setup SwipeRefreshLayout container
         swipeRefreshLayout = new SwipeRefreshLayout(this);
         webView = new WebView(this);
         swipeRefreshLayout.addView(webView);
@@ -39,7 +38,16 @@ public class MainActivity extends AppCompatActivity {
         // Pull down to reload
         swipeRefreshLayout.setOnRefreshListener(() -> webView.reload());
 
-        // Stop the refresh spinner once the webpage completes loading
+        // Ensure SwipeRefreshLayout only activates at the top of the page
+        swipeRefreshLayout.getViewTreeObserver().addOnScrollChangedListener(() -> {
+            if (webView.getScrollY() == 0) {
+                swipeRefreshLayout.setEnabled(true);
+            } else {
+                swipeRefreshLayout.setEnabled(false);
+            }
+        });
+
+        // WebViewClient for navigation and external protocols
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
@@ -67,7 +75,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // File upload chooser & JS Alerts
+        // WebChromeClient for Excel file picking and alerts
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
@@ -130,5 +138,4 @@ public class MainActivity extends AppCompatActivity {
             super.onBackPressed();
         }
     }
-            }
-                            
+                                       }
