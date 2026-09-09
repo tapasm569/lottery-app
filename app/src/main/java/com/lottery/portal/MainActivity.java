@@ -1,10 +1,3 @@
-The build error is shown right in your screenshot: **`app/src/main/java/com/lottery/portal/MainActivity.java#L174: <identifier> expected`**.
-
-This means there is a typo, an extra or missing character (like a missing parenthesis, bracket, or typo in a variable name) on or right around **Line 174** in your `MainActivity.java` file.
-
-Here is the fully corrected version of **`MainActivity.java`** with proper syntax. Replace the contents of your `MainActivity.java` file with this exact code:
-
-```java
 package com.lottery.portal;
 
 import android.content.Intent;
@@ -171,8 +164,4 @@ public class MainActivity extends AppCompatActivity {
             super.onBackPressed();
         }
     }
-}
-
-```
-
-Commit this file to GitHub, and your GitHub Actions build will pass successfully.
+                         }
