@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Message;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -37,18 +36,17 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setAllowFileAccess(true);
         webSettings.setAllowContentAccess(true);
         webSettings.setDatabaseEnabled(true);
-        
-        // Critical for window.open() support (e.g., WhatsApp button triggers)
-        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
-        webSettings.setSupportMultipleWindows(true);
 
-        // Pull down to reload (only allowed when scrolled to the very top)
+        // Turn OFF multiple windows to eliminate the blank/blurred overlay screen
+        webSettings.setSupportMultipleWindows(false);
+        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
+
+        // Pull to refresh
         swipeRefreshLayout.setOnRefreshListener(() -> webView.reload());
         swipeRefreshLayout.getViewTreeObserver().addOnScrollChangedListener(() -> {
             swipeRefreshLayout.setEnabled(webView.getScrollY() == 0);
         });
 
-        // WebViewClient to handle standard and external URLs
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageStarted(WebView view, String url, Bitmap favicon) {
@@ -63,42 +61,18 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return handleExternalLink(request.getUrl().toString());
+                return processUrl(request.getUrl().toString());
             }
 
             @SuppressWarnings("deprecation")
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return handleExternalLink(url);
+                return processUrl(url);
             }
         });
 
-        // WebChromeClient to handle window.open(), file choosers, and alerts
         webView.setWebChromeClient(new WebChromeClient() {
-            // Handle window.open() calls (opens WhatsApp or external links in device apps)
-            @Override
-            public boolean onCreateWindow(WebView view, boolean isDialog, boolean isUserGesture, Message resultMsg) {
-                WebView tempWebView = new WebView(MainActivity.this);
-                tempWebView.setWebViewClient(new WebViewClient() {
-                    @Override
-                    public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest req) {
-                        return handleExternalLink(req.getUrl().toString());
-                    }
-
-                    @SuppressWarnings("deprecation")
-                    @Override
-                    public boolean shouldOverrideUrlLoading(WebView v, String url) {
-                        return handleExternalLink(url);
-                    }
-                });
-
-                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
-                transport.setWebView(tempWebView);
-                resultMsg.sendToTarget();
-                return true;
-            }
-
-            // Excel / Image File Picker
+            // Excel & File Picker
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
                 if (MainActivity.this.filePathCallback != null) {
@@ -117,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
                 return true;
             }
 
-            // JavaScript alert dialog support
+            // JavaScript alert pop-ups
             @Override
             public boolean onJsAlert(WebView view, String url, String message, android.webkit.JsResult result) {
                 Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
@@ -129,8 +103,10 @@ public class MainActivity extends AppCompatActivity {
         webView.loadUrl("https://ticketsnowonline.kesug.com");
     }
 
-    // Helper method to intercept WhatsApp, UPI, phone calls, and open native apps
-    private boolean handleExternalLink(String url) {
+    private boolean processUrl(String url) {
+        if (url == null) return false;
+
+        // Detect WhatsApp, UPI, Phone, and external actions
         if (url.startsWith("https://wa.me/") || 
             url.startsWith("https://api.whatsapp.com/") || 
             url.startsWith("whatsapp://") || 
@@ -141,12 +117,14 @@ public class MainActivity extends AppCompatActivity {
                 Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-                return true;
+                return true; // Stops WebView from staying on an empty/blurred tab
             } catch (Exception e) {
-                Toast.makeText(this, "Application not installed to complete action", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "No app available to open this link", Toast.LENGTH_SHORT).show();
                 return true;
             }
         }
+
+        // Keep internal website pages navigating inside the app
         return false;
     }
 
