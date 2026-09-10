@@ -1,8 +1,11 @@
-package com.lottery.portal;
+package com.example.portalapp;
 
+import android.annotation.SuppressLint;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.KeyEvent;
 import android.view.View;
 import android.webkit.CookieManager;
 import android.webkit.ValueCallback;
@@ -13,155 +16,157 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
-import androidx.annotation.Nullable;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 public class MainActivity extends AppCompatActivity {
-    private WebView webView;
-    private SwipeRefreshLayout swipeRefreshLayout;
-    private ValueCallback<Uri[]> filePathCallback;
-    private final static int FILE_CHOOSER_RESULT_CODE = 1;
 
+    private WebView webView;
+    private ValueCallback<Uri[]> uploadMessageCallback;
+    private ActivityResultLauncher<Intent> filePickerLauncher;
+
+    @SuppressLint("SetJavaScriptEnabled")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        swipeRefreshLayout = new SwipeRefreshLayout(this);
+        // File picker handler for Excel imports, profile pictures, and UTR screenshots
+        filePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                result -> {
+                    if (uploadMessageCallback == null) return;
+
+                    Uri[] results = null;
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                        if (result.getData().getData() != null) {
+                            results = new Uri[]{result.getData().getData()};
+                        } else if (result.getData().getClipData() != null) {
+                            int count = result.getData().getClipData().getItemCount();
+                            results = new Uri[count];
+                            for (int i = 0; i < count; i++) {
+                                results[i] = result.getData().getClipData().getItemAt(i).getUri();
+                            }
+                        }
+                    }
+                    uploadMessageCallback.onReceiveValue(results);
+                    uploadMessageCallback = null;
+                }
+        );
+
+        // Initialize WebView
         webView = new WebView(this);
-        
+        setContentView(webView);
+
+        // Hardware acceleration prevents background blur and tap-drop bugs
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-        swipeRefreshLayout.addView(webView);
-        setContentView(swipeRefreshLayout);
 
-        WebSettings webSettings = webView.getSettings();
-        webSettings.setJavaScriptEnabled(true);
-        webSettings.setDomStorageEnabled(true);
-        webSettings.setDatabaseEnabled(true);
-        webSettings.setAllowFileAccess(true);
-        webSettings.setAllowContentAccess(true);
-        webSettings.setSupportMultipleWindows(false);
-        webSettings.setJavaScriptCanOpenWindowsAutomatically(true);
-        webSettings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+        // WebSettings configuration for full script, local DB, and responsive execution
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        settings.setDatabaseEnabled(true);
+        settings.setAllowFileAccess(true);
+        settings.setAllowContentAccess(true);
 
+        // Prevent blank popup freezes by handling everything directly in one window
+        settings.setSupportMultipleWindows(false);
+        settings.setJavaScriptCanOpenWindowsAutomatically(true);
+
+        // Viewport and layout settings
+        settings.setLoadWithOverviewMode(true);
+        settings.setUseWideViewPort(true);
+        settings.setSupportZoom(false);
+        settings.setBuiltInZoomControls(false);
+        settings.setDisplayZoomControls(false);
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+
+        // Keep cookies & login sessions active between app reboots
         CookieManager cookieManager = CookieManager.getInstance();
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
-        swipeRefreshLayout.setOnRefreshListener(() -> webView.reload());
-        
-        swipeRefreshLayout.getViewTreeObserver().addOnScrollChangedListener(() -> {
-            if (webView.getScrollY() == 0) {
-                swipeRefreshLayout.setEnabled(true);
-            } else {
-                swipeRefreshLayout.setEnabled(false);
-            }
-        });
-
+        // Intercept external deep links (WhatsApp, Phone Call, UPI apps)
         webView.setWebViewClient(new WebViewClient() {
             @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                swipeRefreshLayout.setRefreshing(false);
-                CookieManager.getInstance().flush();
-            }
-
-            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                return handleProtocols(request.getUrl().toString());
-            }
+                String url = request.getUrl().toString();
 
-            @SuppressWarnings("deprecation")
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                return handleProtocols(url);
+                if (url.startsWith("tel:") ||
+                    url.startsWith("whatsapp:") ||
+                    url.startsWith("https://wa.me/") ||
+                    url.startsWith("upi:")) {
+                    try {
+                        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                        startActivity(intent);
+                        return true;
+                    } catch (ActivityNotFoundException e) {
+                        String targetApp = url.startsWith("upi:") ? "UPI Payment app" :
+                                           url.startsWith("tel:") ? "Phone Dialer" : "WhatsApp";
+                        Toast.makeText(MainActivity.this, "No compatible " + targetApp + " installed on this device.", Toast.LENGTH_SHORT).show();
+                        return true;
+                    }
+                }
+                return false;
             }
         });
 
+        // WebChromeClient bridges native Android file picker to HTML file inputs
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(WebView webView, ValueCallback<Uri[]> filePathCallback, FileChooserParams fileChooserParams) {
-                if (MainActivity.this.filePathCallback != null) {
-                    MainActivity.this.filePathCallback.onReceiveValue(null);
+                if (uploadMessageCallback != null) {
+                    uploadMessageCallback.onReceiveValue(null);
                 }
-                MainActivity.this.filePathCallback = filePathCallback;
+                uploadMessageCallback = filePathCallback;
 
                 Intent intent = fileChooserParams.createIntent();
                 try {
-                    startActivityForResult(intent, FILE_CHOOSER_RESULT_CODE);
-                } catch (Exception e) {
-                    MainActivity.this.filePathCallback = null;
-                    Toast.makeText(MainActivity.this, "Cannot open file manager", Toast.LENGTH_SHORT).show();
+                    filePickerLauncher.launch(intent);
+                } catch (ActivityNotFoundException e) {
+                    uploadMessageCallback = null;
+                    Toast.makeText(MainActivity.this, "Cannot open device file picker.", Toast.LENGTH_SHORT).show();
                     return false;
                 }
                 return true;
             }
-
-            @Override
-            public boolean onJsAlert(WebView view, String url, String message, android.webkit.JsResult result) {
-                Toast.makeText(MainActivity.this, message, Toast.LENGTH_LONG).show();
-                result.confirm();
-                return true;
-            }
         });
 
-        webView.loadUrl("https://ticketsnowonline.kesug.com");
+        // Load your live website URL (or file:///android_asset/index.html if local)
+        webView.loadUrl("https://your-website-url.com");
     }
 
-    private boolean handleProtocols(String url) {
-        if (url == null) return false;
-        if (url.startsWith("whatsapp://") || url.startsWith("https://wa.me/") || url.startsWith("upi://") || url.startsWith("tel:")) {
-            try {
-                Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                startActivity(intent);
-                return true;
-            } catch (Exception e) {
-                Toast.makeText(this, "App not installed to handle this action", Toast.LENGTH_SHORT).show();
-                return true;
-            }
-        }
-        return false;
-    }
-
+    // Support device hardware back button inside the WebView history
     @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        if (requestCode == FILE_CHOOSER_RESULT_CODE) {
-            if (filePathCallback == null) return;
-            
-            Uri[] results = null;
-            
-            if (resultCode == RESULT_OK && data != null) {
-                String dataString = data.getDataString();
-                if (dataString != null) {
-                    results = new Uri[]{Uri.parse(dataString)};
-                } else if (data.getClipData() != null) {
-                    int count = data.getClipData().getItemCount();
-                    results = new Uri[count];
-                    for (int i = 0; i < count; i++) {
-                        results[i] = data.getClipData().getItemAt(i).getUri();
-                    }
-                }
-            }
-            
-            filePathCallback.onReceiveValue(results);
-            filePathCallback = null;
-            
-            if (webView != null) {
-                webView.invalidate();
-                webView.requestLayout();
-            }
-        } else {
-            super.onActivityResult(requestCode, resultCode, data);
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView.canGoBack()) {
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && webView.canGoBack()) {
             webView.goBack();
-        } else {
-            super.onBackPressed();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (webView != null) {
+            webView.onResume();
         }
     }
-                         }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (webView != null) {
+            webView.onPause();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (webView != null) {
+            webView.destroy();
+        }
+        super.onDestroy();
+    }
+}
