@@ -1,0 +1,11 @@
+<resources>
+    <!-- Base application theme -->
+    <style name="Theme.App" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Customize your theme colors here -->
+    </style>
+
+    <!-- Splash theme used on launch -->
+    <style name="Theme.App.Splash" parent="Theme.App">
+        <!-- Optional background or window settings -->
+    </style>
+</resources>
