@@ -1,4 +1,4 @@
-package com.example.portalapp;
+package com.example.portal;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
