@@ -1,13 +1,13 @@
 plugins {
-    id 'com.android.application'
+    id 'com.lottery.portal'
 }
 
 android {
-    namespace 'com.example.webview'
+    namespace 'com.lottery.portal'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.example.webview"
+        applicationId "com.lottery.portal"
         minSdk 21
         targetSdk 34
         versionCode 1
