@@ -151,8 +151,8 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // Load your live Supabase website URL
-        webView.loadUrl("https://cpbwtrjwfufqyrwdrmpo.supabase.co");
+        // Load your live frontend website URL
+        webView.loadUrl("https://ticketsnowonline.kesug.com");
     }
 
     // JavaScript Interface class to handle incoming order alerts from your web frontend
@@ -218,4 +218,5 @@ public class MainActivity extends AppCompatActivity {
         }
         super.onDestroy();
     }
-                                       }
+                    }
+}
