@@ -1,6 +1,4 @@
-Here is your complete, updated MainActivity.java file. It incorporates all your proven baseline configurations—including hardware acceleration, persistent cookies, UPI/WhatsApp deep-linking, and file-picker support—along with the new JavaScript-to-Android Notification Bridge (WebAppInterface) and Android 13+ runtime notification permissions (POST_NOTIFICATIONS) to alert sellers in the status bar when new orders arrive.
 package com.example.portalapp;
-
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
