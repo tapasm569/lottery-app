@@ -1,4 +1,5 @@
-package com.example.portal;
+package com.lottery.portal;
+
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.NotificationChannel;
@@ -217,6 +218,4 @@ public class MainActivity extends AppCompatActivity {
         }
         super.onDestroy();
     }
-}
-
-    
+                                       }
